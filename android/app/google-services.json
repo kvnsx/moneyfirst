@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "362934439495",
+    "project_id": "moneyfirst-c2318",
+    "storage_bucket": "moneyfirst-c2318.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:362934439495:android:a91dab47bdfed9b2952b62",
+        "android_client_info": {
+          "package_name": "com.example.moneyfirst"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "362934439495-i971h2qn70a18f77i78o5dnu0jp6crpg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAahTA5Bwg1uuiKp65UkMMuefOAmBT31ls"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "362934439495-i971h2qn70a18f77i78o5dnu0jp6crpg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
