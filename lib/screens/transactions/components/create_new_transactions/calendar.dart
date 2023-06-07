@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../constants.dart';
 import '../../../../size_config.dart';
@@ -138,8 +139,10 @@ enum StartWeekDay { sunday, monday }
 class Calendars extends StatefulWidget {
   const Calendars({
     Key key,
-    void changeSelectedDate,
+    this.changeSelectedDate,
   }) : super(key: key);
+
+  final Function changeSelectedDate;
 
   @override
   _CalendarsState createState() => _CalendarsState();
@@ -157,130 +160,180 @@ class _CalendarsState extends State<Calendars> {
     'Sa',
     'Su',
   ];
-  final List<String> _monthNames = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec'
-  ];
-  DateTime _currentDateTime;
+  int _currentMonthPage;
+  int _currentYearPage;
   DateTime _selectedDateTime;
   List<Calendar> _sequentialDates;
-  int midYear;
   CalendarViews _currentView;
+  PageController _pageControllerDates;
+  PageController _pageControllerMonths;
+  PageController _pageControllerYears;
+
+  int firstYear;
+  int lastYear;
+
   @override
   void initState() {
     super.initState();
-    final date = DateTime.now();
-    _currentDateTime = DateTime(date.year, date.month);
-    _selectedDateTime = DateTime(date.year, date.month, date.day);
+    firstYear = 2000;
+    lastYear = 2100;
+
+    _currentMonthPage = DateTime.now().month;
+    _currentYearPage = DateTime.now().year;
+
+    _pageControllerDates = PageController(
+        initialPage:
+            (_currentYearPage - firstYear) * 12 + _currentMonthPage - 1);
+
+    _pageControllerMonths =
+        PageController(initialPage: _currentYearPage - firstYear);
+
+    _pageControllerYears =
+        PageController(initialPage: (_currentYearPage - firstYear) ~/ 10);
+
+    _selectedDateTime =
+        DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
     _currentView = CalendarViews.dates;
     _getCalendar();
   }
 
   @override
+  void dispose() {
+    super.dispose();
+    _pageControllerDates.dispose();
+    _pageControllerMonths.dispose();
+    _pageControllerYears.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return (_currentView == CalendarViews.dates)
-        ? _datesView()
-        : (_currentView == CalendarViews.months)
-            ? _showMonthsList()
-            : _yearsView(midYear ?? _currentDateTime.year);
+    if (_currentView == CalendarViews.dates) {
+      return _datesView();
+    } else if (_currentView == CalendarViews.months) {
+      return _showMonthsList();
+    } else {
+      return _yearsView();
+    }
   }
 
   Widget _datesView() {
     return Container(
-      height: getProportionateScreenHeight(326),
-      width: double.infinity,
-      child: PageView(
+      width: getProportionateScreenWidth(375),
+      height: getProportionateScreenHeight(330),
+      child: PageView.builder(
+        controller: _pageControllerDates,
+        onPageChanged: (value) {
+          print(value);
+          setState(() {
+            if (value % 12 + 1 != 0) {
+              _currentMonthPage = value % 12 + 1;
+              _currentYearPage = value ~/ 12 + firstYear;
+              _getCalendar();
+            } else {
+              _currentMonthPage = 12;
+              _currentYearPage = value ~/ 12 + firstYear - 1;
+              _getCalendar();
+            }
+          });
+        },
+        itemBuilder: (context, index) {
+          return _pageDatesView(index);
+        },
+      ),
+    );
+  }
+
+  Widget _pageDatesView(int index) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: getProportionateScreenWidth(16),
+      ),
+      child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: getProportionateScreenWidth(16),
-              vertical: getProportionateScreenHeight(20),
+            padding: EdgeInsets.only(
+              top: getProportionateScreenHeight(20),
+              bottom: getProportionateScreenHeight(10),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                // header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    _toggleButton(false),
-                    InkWell(
-                      onTap: () =>
-                          setState(() => _currentView = CalendarViews.months),
-                      child: Center(
-                        child: Text(
-                          '${_monthNames[_currentDateTime.month - 1]} ${_currentDateTime.year}',
-                          style: TextStyle(
-                            fontSize: getProportionateScreenHeight(18),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                _toggleButton(next: false),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _pageControllerMonths = PageController(
+                          initialPage: _currentYearPage - firstYear);
+                      _currentView = CalendarViews.months;
+                    });
+                  },
+                  child: Text(
+                    DateFormat.yMMMM()
+                        .format(DateTime(_currentYearPage, _currentMonthPage)),
+                    style: TextStyle(
+                      fontSize: getProportionateScreenHeight(18),
+                      fontWeight: FontWeight.w600,
                     ),
-                    _toggleButton(true),
-                  ],
+                  ),
                 ),
-                _calendarBody(),
+                _toggleButton(next: true),
               ],
             ),
           ),
-          Text("otong"),
+          GridView.builder(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            itemCount: _sequentialDates.length + 7,
+            physics: NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              crossAxisSpacing: getProportionateScreenHeight(14),
+            ),
+            itemBuilder: (context, index) {
+              if (index < 7) return _weekDayTitle(index);
+              if (_sequentialDates[index - 7].date == _selectedDateTime)
+                return _selector(_sequentialDates[index - 7]);
+              return _calendarDates(_sequentialDates[index - 7]);
+            },
+          ),
         ],
       ),
     );
   }
 
   // next / prev month buttons
-  GestureDetector _toggleButton(bool next) {
+  GestureDetector _toggleButton({bool next, int index}) {
     return GestureDetector(
       onTap: () {
-        if (_currentView == CalendarViews.dates) {
-          setState(() => (next) ? _getNextMonth() : _getPrevMonth());
-        } else if (_currentView == CalendarViews.year) {
-          if (next) {
-            midYear =
-                (midYear == null) ? _currentDateTime.year + 9 : midYear + 9;
-          } else {
-            midYear =
-                (midYear == null) ? _currentDateTime.year - 9 : midYear - 9;
+        if (next) {
+          if (_currentView == CalendarViews.dates) {
+            _pageControllerDates.jumpToPage(
+                (_currentYearPage - firstYear) * 12 +
+                    _currentMonthPage -
+                    1 +
+                    1);
+          } else if (_currentView == CalendarViews.months) {
+            _pageControllerMonths.jumpToPage(_currentYearPage - firstYear + 1);
+          } else if (_currentView == CalendarViews.year) {
+            _pageControllerYears.jumpToPage(index + 1);
           }
-          setState(() {});
+        } else {
+          if (_currentView == CalendarViews.dates) {
+            _pageControllerDates.jumpToPage(
+                (_currentYearPage - firstYear) * 12 +
+                    _currentMonthPage -
+                    1 -
+                    1);
+          } else if (_currentView == CalendarViews.months) {
+            _pageControllerMonths.jumpToPage(_currentYearPage - firstYear - 1);
+          } else if (_currentView == CalendarViews.year) {
+            _pageControllerYears.jumpToPage(index - 1);
+          }
         }
       },
       child: next
           ? SvgPicture.asset('assets/icons/arrow-right-s-line.svg')
           : SvgPicture.asset('assets/icons/arrow-left-s-line.svg'),
-    );
-  }
-
-  // calendar
-  Widget _calendarBody() {
-    if (_sequentialDates == null) return Container();
-    return GridView.builder(
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      itemCount: _sequentialDates.length + 7,
-      physics: NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        crossAxisSpacing: getProportionateScreenHeight(14),
-      ),
-      itemBuilder: (context, index) {
-        if (index < 7) return _weekDayTitle(index);
-        if (_sequentialDates[index - 7].date == _selectedDateTime)
-          return _selector(_sequentialDates[index - 7]);
-        return _calendarDates(_sequentialDates[index - 7]);
-      },
     );
   }
 
@@ -303,21 +356,44 @@ class _CalendarsState extends State<Calendars> {
     return InkWell(
       onTap: () {
         if (_selectedDateTime != calendarDate.date) {
+          setState(() {
+            _selectedDateTime = calendarDate.date;
+            widget.changeSelectedDate(selectedDate: _selectedDateTime);
+          });
           if (calendarDate.nextMonth) {
-            _getNextMonth();
+            _pageControllerDates.animateToPage(
+                (_currentYearPage - firstYear) * 12 + _currentMonthPage,
+                duration: animationDuration,
+                curve: Curves.easeIn);
           } else if (calendarDate.prevMonth) {
-            _getPrevMonth();
+            _pageControllerDates.animateToPage(
+                (_currentYearPage - firstYear) * 12 + _currentMonthPage - 2,
+                duration: animationDuration,
+                curve: Curves.easeIn);
           }
-          setState(() => _selectedDateTime = calendarDate.date);
         }
       },
       child: Center(
-        child: Text(
-          '${calendarDate.date.day}',
-          style: TextStyle(
-            color: (calendarDate.thisMonth)
-                ? Colors.black
-                : Colors.black.withOpacity(0.3),
+        child: Container(
+          decoration: (DateFormat.yMMMd().format(calendarDate.date) ==
+                  DateFormat.yMMMd().format(DateTime.now()))
+              ? BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(
+                    getProportionateScreenHeight(10),
+                  ),
+                )
+              : null,
+          child: Text(
+            '${calendarDate.date.day}',
+            style: TextStyle(
+              color: (DateFormat.yMMMd().format(calendarDate.date) ==
+                      DateFormat.yMMMd().format(DateTime.now()))
+                  ? primaryColor
+                  : (calendarDate.thisMonth)
+                      ? Colors.black
+                      : Colors.black.withOpacity(0.3),
+            ),
           ),
         ),
       ),
@@ -327,18 +403,20 @@ class _CalendarsState extends State<Calendars> {
   // date selector
   Widget _selector(Calendar calendarDate) {
     return Container(
-      margin: EdgeInsets.all(
-        getProportionateScreenHeight(2),
-      ),
       decoration: BoxDecoration(
-        color: primaryColor,
-        shape: BoxShape.circle,
+        color:
+            _selectedDateTime.month == _currentMonthPage ? primaryColor : null,
+        borderRadius: BorderRadius.circular(
+          getProportionateScreenHeight(10),
+        ),
       ),
       child: Center(
         child: Text(
           '${calendarDate.date.day}',
           style: TextStyle(
-            color: Colors.white,
+            color: _selectedDateTime.month == _currentMonthPage
+                ? Colors.white
+                : Colors.black.withOpacity(0.3),
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -346,85 +424,130 @@ class _CalendarsState extends State<Calendars> {
     );
   }
 
-  // get next month calendar
-  void _getNextMonth() {
-    if (_currentDateTime.month == 12) {
-      _currentDateTime = DateTime(_currentDateTime.year + 1, 1);
-    } else {
-      _currentDateTime =
-          DateTime(_currentDateTime.year, _currentDateTime.month + 1);
-    }
-    _getCalendar();
-  }
-
-  // get previous month calendar
-  void _getPrevMonth() {
-    if (_currentDateTime.month == 1) {
-      _currentDateTime = DateTime(_currentDateTime.year - 1, 12);
-    } else {
-      _currentDateTime =
-          DateTime(_currentDateTime.year, _currentDateTime.month - 1);
-    }
-    _getCalendar();
-  }
-
   // get calendar for current month
   void _getCalendar() {
     _sequentialDates = CustomCalendar().getMonthCalendar(
-      _currentDateTime.month,
-      _currentDateTime.year,
+      _currentMonthPage,
+      _currentYearPage,
       startWeekDay: StartWeekDay.monday,
     );
   }
 
   // show months list
   Widget _showMonthsList() {
-    return Column(
-      children: <Widget>[
-        InkWell(
-          onTap: () => setState(() => _currentView = CalendarViews.year),
-          child: Text(
-            '${_currentDateTime.year}',
-            style: TextStyle(
-              fontSize: getProportionateScreenHeight(22),
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
+    return Container(
+      width: getProportionateScreenWidth(375),
+      height: getProportionateScreenHeight(200),
+      child: Center(
+        child: PageView.builder(
+          controller: _pageControllerMonths,
+          onPageChanged: (value) {
+            print(value);
+            setState(() {
+              _currentYearPage = firstYear + value;
+            });
+          },
+          itemBuilder: (context, index) {
+            return _pageShowMonths();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _pageShowMonths() {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: getProportionateScreenWidth(10),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(
+              top: getProportionateScreenHeight(20),
+              bottom: getProportionateScreenHeight(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                _toggleButton(next: false),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _pageControllerYears = PageController(
+                          initialPage: (_currentYearPage - firstYear) ~/ 10);
+                      _currentView = CalendarViews.year;
+                    });
+                  },
+                  child: Center(
+                    child: Text(
+                      '$_currentYearPage',
+                      style: TextStyle(
+                        fontSize: getProportionateScreenHeight(18),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                _toggleButton(next: true),
+              ],
             ),
           ),
-        ),
-        GridView.builder(
+          GridView.builder(
+            padding: EdgeInsets.zero,
             shrinkWrap: true,
             physics: NeverScrollableScrollPhysics(),
-            itemCount: _monthNames.length,
+            itemCount: 12,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
+              childAspectRatio: 5 / 2,
             ),
             itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  _currentDateTime = DateTime(_currentDateTime.year, index + 1);
-                  _getCalendar();
-                  setState(() => _currentView = CalendarViews.dates);
-                },
-                child: Center(
+              return Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: getProportionateScreenWidth(16),
+                  vertical: getProportionateScreenHeight(2),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _currentMonthPage = index + 1;
+                      _pageControllerDates = PageController(
+                          initialPage: (_currentYearPage - firstYear) * 12 +
+                              _currentMonthPage -
+                              1);
+                      _currentView = CalendarViews.dates;
+                      _getCalendar();
+                    });
+                  },
                   child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: getProportionateScreenWidth(20),
-                      vertical: getProportionateScreenHeight(10),
-                    ),
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(
                         getProportionateScreenHeight(10),
                       ),
-                      color: index == (_currentDateTime.month - 1)
+                      color: DateFormat.yMMM().format(
+                                DateTime(_selectedDateTime.year,
+                                    _selectedDateTime.month),
+                              ) ==
+                              DateFormat.yMMM().format(
+                                DateTime(_currentYearPage, index + 1),
+                              )
                           ? primaryColor
                           : null,
                     ),
                     child: Text(
-                      _monthNames[index],
+                      DateFormat.MMM()
+                          .format(DateTime(_currentYearPage, index + 1)),
                       style: TextStyle(
                         fontSize: getProportionateScreenHeight(14),
-                        color: (index == _currentDateTime.month - 1)
+                        color: DateFormat.yMMM().format(
+                                  DateTime(_selectedDateTime.year,
+                                      _selectedDateTime.month),
+                                ) ==
+                                DateFormat.yMMM().format(
+                                  DateTime(_currentYearPage, index + 1),
+                                )
                             ? Colors.white
                             : Colors.black,
                         fontWeight: FontWeight.w400,
@@ -433,57 +556,103 @@ class _CalendarsState extends State<Calendars> {
                   ),
                 ),
               );
-            }),
-      ],
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  // years list views
-  Widget _yearsView(int midYear) {
+  // // years list views
+  Widget _yearsView() {
+    return Container(
+      width: getProportionateScreenWidth(375),
+      height: getProportionateScreenHeight(200),
+      child: PageView.builder(
+        controller: _pageControllerYears,
+        onPageChanged: (value) {
+          print(value);
+        },
+        itemBuilder: (context, index) {
+          return _pageYearsView(index);
+        },
+      ),
+    );
+  }
+
+  Column _pageYearsView(int value) {
     return Column(
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            _toggleButton(false),
-            Spacer(),
-            _toggleButton(true),
-          ],
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            getProportionateScreenWidth(10),
+            getProportionateScreenHeight(20),
+            getProportionateScreenWidth(10),
+            getProportionateScreenHeight(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              _toggleButton(next: false, index: value),
+              Text(
+                '${firstYear + value * 10} - ${firstYear + value * 10 + 9}',
+                style: TextStyle(
+                  fontSize: getProportionateScreenHeight(18),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              _toggleButton(next: true, index: value),
+            ],
+          ),
         ),
-        SizedBox.expand(
-          child: GridView.builder(
-            shrinkWrap: true,
-            itemCount: 9,
-            physics: NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-            ),
-            itemBuilder: (context, index) {
-              int thisYear;
-              if (index < 4) {
-                thisYear = midYear - (4 - index);
-              } else if (index > 4) {
-                thisYear = midYear + (index - 4);
-              } else {
-                thisYear = midYear;
-              }
-              return ListTile(
-                onTap: () {
-                  _currentDateTime = DateTime(thisYear, _currentDateTime.month);
-                  _getCalendar();
-                  setState(() => _currentView = CalendarViews.months);
-                },
-                title: Text(
-                  '$thisYear',
+        GridView.builder(
+          shrinkWrap: true,
+          itemCount: 10,
+          padding: EdgeInsets.zero,
+          physics: NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 5,
+            childAspectRatio: 5 / 4,
+          ),
+          itemBuilder: (context, index) {
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _currentYearPage = value * 10 + index % 10 + firstYear;
+                  _pageControllerMonths =
+                      PageController(initialPage: _currentYearPage - firstYear);
+                  _currentView = CalendarViews.months;
+                });
+              },
+              child: Container(
+                margin: EdgeInsets.symmetric(
+                  horizontal: getProportionateScreenWidth(5),
+                  vertical: getProportionateScreenHeight(10),
+                ),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(
+                    getProportionateScreenHeight(10),
+                  ),
+                  color: (value * 10 + index % 10 + firstYear) ==
+                          _selectedDateTime.year
+                      ? primaryColor
+                      : null,
+                ),
+                child: Text(
+                  '${value * 10 + index % 10 + firstYear}',
                   style: TextStyle(
-                    fontSize: 18,
-                    color: (thisYear == _currentDateTime.year)
-                        ? Colors.yellow
-                        : Colors.white,
+                    fontSize: getProportionateScreenHeight(14),
+                    color: (value * 10 + index % 10 + firstYear) ==
+                            _selectedDateTime.year
+                        ? Colors.white
+                        : Colors.black,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ],
     );

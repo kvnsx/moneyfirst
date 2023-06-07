@@ -86,17 +86,20 @@ class _BodyState extends State<Body> {
           Expanded(
             child: PageView.builder(
               controller: pageController,
-              onPageChanged: (value) => {
+              onPageChanged: (value) {
                 setState(() {
                   if (value > 1) cancelTimer();
                   currentPage = value % onBoardingData.length;
-                })
+                });
               },
-              itemBuilder: (context, index) => Contents(
-                color: onBoardingData[index % onBoardingData.length]["color"],
-                text: onBoardingData[index % onBoardingData.length]["text"],
-                image: onBoardingData[index % onBoardingData.length]["image"],
-              ),
+              itemBuilder: (context, index) {
+                print(index);
+                return Contents(
+                  color: onBoardingData[index % onBoardingData.length]["color"],
+                  text: onBoardingData[index % onBoardingData.length]["text"],
+                  image: onBoardingData[index % onBoardingData.length]["image"],
+                );
+              },
             ),
           ),
           SizedBox(
@@ -145,7 +148,7 @@ class _BodyState extends State<Body> {
                 ),
                 DefaultButton(
                   press: () async {
-                    await AuthService().signInWithGoogle();
+                    // await AuthService().signInWithGoogle();
                     Navigator.pushNamedAndRemoveUntil(
                         context, Home.routeName, (route) => false);
                   },

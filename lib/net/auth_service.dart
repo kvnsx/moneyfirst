@@ -1,35 +1,35 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+// import 'package:google_sign_in/google_sign_in.dart';
 import 'package:moneyfirst/models/default_category.dart';
 import 'package:moneyfirst/net/database_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  // final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   Stream<User> get onAuthStateChanged => _auth.authStateChanges();
 
-  Future<bool> signInWithGoogle() async {
-    try {
-      final GoogleSignInAccount googleSignInAccount =
-          await _googleSignIn.signIn();
-      final GoogleSignInAuthentication googleSignInAuthentication =
-          await googleSignInAccount.authentication;
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleSignInAuthentication.accessToken,
-        idToken: googleSignInAuthentication.idToken,
-      );
-      UserCredential result = await _auth.signInWithCredential(credential);
-      if (result.additionalUserInfo.isNewUser) {
-        return true;
-      } else {
-        return false;
-      }
-    } on FirebaseAuthException catch (e) {
-      print(e.code);
-      throw e;
-    }
-  }
+  // Future<bool> signInWithGoogle() async {
+  //   try {
+  //     final GoogleSignInAccount googleSignInAccount =
+  //         await _googleSignIn.signIn();
+  //     final GoogleSignInAuthentication googleSignInAuthentication =
+  //         await googleSignInAccount.authentication;
+  //     final AuthCredential credential = GoogleAuthProvider.credential(
+  //       accessToken: googleSignInAuthentication.accessToken,
+  //       idToken: googleSignInAuthentication.idToken,
+  //     );
+  //     UserCredential result = await _auth.signInWithCredential(credential);
+  //     if (result.additionalUserInfo.isNewUser) {
+  //       return true;
+  //     } else {
+  //       return false;
+  //     }
+  //   } on FirebaseAuthException catch (e) {
+  //     print(e.code);
+  //     throw e;
+  //   }
+  // }
 
   Future<void> signOut() async {
     try {
@@ -41,7 +41,7 @@ class AuthService {
   }
 
   Future<void> signOutFromGoogle() async {
-    await _googleSignIn.signOut();
+    // await _googleSignIn.signOut();
     await _auth.signOut();
   }
 
